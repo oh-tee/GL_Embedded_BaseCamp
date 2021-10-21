@@ -7,6 +7,8 @@ Debug/
 
 # STM32 git ignore
 *.mxproject
+*.cproject
+*.project
 
 # Prerequisites
 *.d
