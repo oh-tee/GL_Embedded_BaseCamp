@@ -1,0 +1,5 @@
+Lab 1 assignment:
+
+1. Make 4 LEDs blinking in your own pattern (simply in a while loop).
+2. Try to debug: watch variables, look at the memory, step etc.
+3. Check pin behavior with a logic analyzer. Save the trace file.
