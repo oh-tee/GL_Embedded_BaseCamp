@@ -28,11 +28,26 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct
+{
+	GPIO_TypeDef *port;
+	uint16_t pin;
+} LED_GPIO_t;
+
+enum LED
+{
+	LED_GREEN,
+	LED_ORANGE,
+	LED_RED,
+	LED_BLUE,
+	LED_COUNT
+} LED_t;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define COUNT_ELEMENTS(a) (sizeof(a) / sizeof(a[0]))
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -43,13 +58,23 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t delay = 300;
+char pattern[][LED_COUNT] = {{[LED_GREEN] = 1, [LED_ORANGE] = 1, [LED_RED] = 0, [LED_BLUE] = 0},
+							 {[LED_GREEN] = 0, [LED_ORANGE] = 1, [LED_RED] = 1, [LED_BLUE] = 0},
+							 {[LED_GREEN] = 0, [LED_ORANGE] = 0, [LED_RED] = 1, [LED_BLUE] = 1},
+							 {[LED_GREEN] = 1, [LED_ORANGE] = 0, [LED_RED] = 0, [LED_BLUE] = 1}};
+LED_GPIO_t leds[] = {[LED_GREEN] = 	{GPIOD, GPIO_PIN_12},
+					 [LED_ORANGE] = {GPIOD, GPIO_PIN_13},
+					 [LED_RED] = 	{GPIOD, GPIO_PIN_14},
+					 [LED_BLUE] = 	{GPIOD, GPIO_PIN_15}};
+
+int delay = 400;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void LED_Show_Next_Frame(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -64,7 +89,7 @@ void SystemClock_Config(void);
 int main(void)
 {
 
-	/* USER CODE BEGIN 1 */
+  /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
 
@@ -94,18 +119,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13|GPIO_PIN_12, GPIO_PIN_SET);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET);
-	  HAL_Delay(delay);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
-	  HAL_Delay(delay);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);
-	  HAL_Delay(delay);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
-	  HAL_Delay(delay);
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+	  LED_Show_Next_Frame();
 	  HAL_Delay(delay);
 	  /* USER CODE END WHILE */
 
@@ -159,7 +173,18 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void LED_Show_Next_Frame(void)
+{
+	static int frame_index= 0;
+	static int frame_count = COUNT_ELEMENTS(pattern);
 
+	for(int i = 0; i < LED_COUNT; i++)
+	{
+		HAL_GPIO_WritePin(leds[i].port, leds[i].pin, pattern[frame_index][i]);
+	}
+
+	frame_index = (frame_index + 1) % frame_count;
+}
 /* USER CODE END 4 */
 
 /**
