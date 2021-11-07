@@ -27,7 +27,15 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef enum
+{
+	CHANNEL_1,
+	CHANNEL_2,
+	CHANNEL_3,
+	CHANNEL_4,
+	CHANNEL_NONE,
+	CHANNEL_COUNT
+} Channel_type;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -36,19 +44,27 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define COUNT(a) (sizeof(a)/sizeof(a[0]))
-#define CHANNELS 4
+#define COUNT(a) (sizeof(a) / sizeof(a[0]))
+
+#define CLOCK_FREQ 8000000
+#define MIN_FREQ 5000
+#define MAX_FREQ 50000
+#define FREQ_STEP 5000
+#define MIN_DUTY 0
+#define MAX_DUTY 100
+#define DUTY_STEP 5
+
+#define TIM_CHANNEL_NONE 0x000000FFU
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
-static uint8_t current_channel = 0;
-static uint32_t arrs[] = {600, 300, 200, 150, 120, 100};
-static uint8_t arr_index = 0;
-static uint8_t pulse_percent = 50;
-
+static uint32_t channels[] = {TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4, TIM_CHANNEL_NONE};
+static uint8_t channel_index = 0;
+static uint8_t current_duty = 50;
+static uint16_t current_frequency = MIN_FREQ;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,9 +75,9 @@ static void MX_TIM4_Init(void);
 static void Switch_Channel(void);
 static void Increase_Frequency(void);
 static void Decrease_Frequency(void);
-static void Increase_Pulse(void);
-static void Decrease_Pulse(void);
-static void Adjust_Pulse(void);
+static void Increase_Duty(void);
+static void Decrease_Duty(void);
+static void Update_Duty(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -101,9 +117,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -133,15 +147,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 72;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV6;
-  RCC_OscInitStruct.PLL.PLLQ = 7;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -150,10 +158,10 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV4;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
@@ -173,7 +181,6 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
@@ -183,18 +190,9 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 600 - 1;
+  htim4.Init.Period = 1600 - 1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
   if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
   {
     Error_Handler();
@@ -206,7 +204,7 @@ static void MX_TIM4_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 800;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -389,76 +387,67 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 static void Switch_Channel(void)
 {
-	current_channel++;
-
-	if (current_channel > CHANNELS)
+	if (channels[channel_index] != TIM_CHANNEL_NONE)
 	{
-		current_channel = 0;
+		HAL_TIM_PWM_Stop(&htim4, channels[channel_index]);
 	}
-	Adjust_Pulse();
+
+	channel_index = (channel_index + 1) % COUNT(channels);
+
+	if (channels[channel_index] != TIM_CHANNEL_NONE)
+	{
+		HAL_TIM_PWM_Start(&htim4, channels[channel_index]);
+	}
 }
 
 static void Increase_Frequency(void)
 {
-	if (arr_index < COUNT(arrs) - 1)
+	if (current_frequency < MAX_FREQ)
 	{
-		arr_index++;
-		TIM4->ARR = arrs[arr_index] - 1;
-		Adjust_Pulse();
+		current_frequency += FREQ_STEP;
+		TIM4->ARR = CLOCK_FREQ / current_frequency - 1;
 		TIM4->CNT = 0;
+		Update_Duty();
 	}
 }
+
 static void Decrease_Frequency(void)
 {
-	if (arr_index > 0)
+	if (current_frequency > MIN_FREQ)
 	{
-		arr_index--;
-		TIM4->ARR = arrs[arr_index] - 1;
-		Adjust_Pulse();
+		current_frequency -= FREQ_STEP;
+		TIM4->ARR = CLOCK_FREQ / current_frequency - 1;
 		TIM4->CNT = 0;
-	}
-}
-static void Adjust_Pulse(void)
-{
-	static uint32_t pulse_value;
-	pulse_value = arrs[arr_index] * pulse_percent / 100;
+		Update_Duty();
 
-	switch (current_channel)
-	{
-	case 0:
-		TIM4->CCR4 = 0;
-		break;
-	case 1:
-		TIM4->CCR1 = pulse_value;
-		break;
-	case 2:
-		TIM4->CCR1 = 0;
-		TIM4->CCR2 = pulse_value;
-		break;
-	case 3:
-		TIM4->CCR2 = 0;
-		TIM4->CCR3 = pulse_value;
-		break;
-	case 4:
-		TIM4->CCR3 = 0;
-		TIM4->CCR4 = pulse_value;
-		break;
 	}
 }
-static void Increase_Pulse(void)
+
+static void Update_Duty(void)
 {
-	if (pulse_percent <= 95)
+	uint32_t pulse_value = CLOCK_FREQ / current_frequency * current_duty / 100;
+
+	TIM4->CCR1 = pulse_value;
+	TIM4->CCR2 = pulse_value;
+	TIM4->CCR3 = pulse_value;
+	TIM4->CCR4 = pulse_value;
+}
+
+static void Increase_Duty(void)
+{
+	if (current_duty < MAX_DUTY)
 	{
-		pulse_percent += 5;
-		Adjust_Pulse();
+		current_duty += DUTY_STEP;
+		Update_Duty();
 	}
 }
-static void Decrease_Pulse(void)
+
+static void Decrease_Duty(void)
 {
-	if (pulse_percent >= 5)
+	if (current_duty > MIN_DUTY)
 	{
-		pulse_percent -= 5;
-		Adjust_Pulse();
+		current_duty -= DUTY_STEP;
+		Update_Duty();
 	}
 }
 
@@ -476,10 +465,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		Increase_Frequency();
 		break;
 	case BTN_UP_Pin:
-		Increase_Pulse();
+		Increase_Duty();
 		break;
 	case BTN_DOWN_Pin:
-		Decrease_Pulse();
+		Decrease_Duty();
 		break;
 	}
 }
