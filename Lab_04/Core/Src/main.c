@@ -51,8 +51,15 @@ const uint32_t MIN_INT_T = -40;
 const uint32_t MAX_INT_T = 125;
 const uint32_t RANGE_INT_T = MAX_INT_T - MIN_INT_T;
 
+const uint32_t MIN_EXT_T = -24;
+const uint32_t MAX_EXT_T = 100;
+const uint32_t RANGE_EXT_T = MAX_EXT_T - MIN_EXT_T;
+
+const uint32_t AVG_SLOPE = 25;
+
 uint32_t potentiometer_level = 0;
 int32_t internal_temperature = 0;
+int32_t external_temperature = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,6 +68,7 @@ void SystemClock_Config(void);
 void ADC_Select_Channel(uint32_t channel);
 void Measure_Potentiometer(void);
 void Measure_Internal_Temperature(void);
+void Measure_External_Temperature(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -99,6 +107,7 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
   /* USER CODE END 2 */
@@ -109,6 +118,7 @@ int main(void)
   {
 	  Measure_Potentiometer();
 	  Measure_Internal_Temperature();
+	  Measure_External_Temperature();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -199,8 +209,25 @@ void Measure_Internal_Temperature(void)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc1);
 		voltage = 3300 * adc_value / 4096; // in mV
-		internal_temperature = (voltage - 760) / 25 + 25;
+		internal_temperature = (voltage - 760) / AVG_SLOPE + 25;
 		TIM4->CCR2 = (internal_temperature - MIN_INT_T) * 100 / RANGE_INT_T;
+	}
+
+}
+
+void Measure_External_Temperature(void)
+{
+	HAL_StatusTypeDef dac_poll_result;
+	uint32_t adc_value;
+
+	ADC_Select_Channel(ADC_CHANNEL_9);
+	HAL_ADC_Start(&hadc1);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 100);
+	if (dac_poll_result == HAL_OK)
+	{
+		adc_value = HAL_ADC_GetValue(&hadc1);
+		external_temperature = (2507 - adc_value) / AVG_SLOPE;
+		TIM4->CCR1 = (external_temperature - MIN_EXT_T) * 100 / RANGE_EXT_T;
 	}
 
 }
