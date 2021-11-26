@@ -57,6 +57,7 @@ const uint32_t INT_T_V25 = 760; //in mV
 const uint32_t MIN_EXT_T = -24;
 const uint32_t MAX_EXT_T = 100;
 const uint32_t RANGE_EXT_T = MAX_EXT_T - MIN_EXT_T;
+const uint32_t EXT_T_ADC = 2507;
 
 const uint32_t AVG_SLOPE = 25;
 
@@ -68,7 +69,7 @@ uint8_t potentiometer_alert = 0;
 uint8_t internal_temp_alert = 0;
 uint8_t external_temp_alert = 0;
 
-uint32_t alert_blink_intervals[] = {0, 1000, 400, 200};
+uint32_t alert_blink_intervals[] = {0, 500, 200, 100}; // ms between LED toggles
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -224,7 +225,7 @@ void Measure_External_Temperature(void)
 	if (dac_poll_result == HAL_OK)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc2);
-		external_temperature = (2507 - adc_value) / AVG_SLOPE;
+		external_temperature = (EXT_T_ADC - adc_value) / AVG_SLOPE;
 		TIM4->CCR1 = (external_temperature - MIN_EXT_T) * 100 / RANGE_EXT_T;
 		external_temp_alert = external_temperature >= ALERT_EXT_TEMP;
 	}
