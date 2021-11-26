@@ -56,7 +56,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern UART_HandleTypeDef huart3;
+
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -216,23 +216,6 @@ void EXTI9_5_IRQHandler(void)
 }
 
 /**
-<<<<<<< HEAD
-  * @brief This function handles USART3 global interrupt.
-  */
-void USART3_IRQHandler(void)
-{
-  /* USER CODE BEGIN USART3_IRQn 0 */
-
-  /* USER CODE END USART3_IRQn 0 */
-  HAL_UART_IRQHandler(&huart3);
-  /* USER CODE BEGIN USART3_IRQn 1 */
-
-  /* USER CODE END USART3_IRQn 1 */
-}
-
-/**
-=======
->>>>>>> 09cce653c8861629ad0c6ed72ffa418da3b2ad21
   * @brief This function handles EXTI line[15:10] interrupts.
   */
 void EXTI15_10_IRQHandler(void)

@@ -52,7 +52,6 @@ const uint32_t RANGE_EXT_T = MAX_EXT_T - MIN_EXT_T;
 const uint32_t EXT_T_ADC0 = 2507;
 const uint32_t AVG_SLOPE = 25;
 uint32_t external_temperature = 0;
-<<<<<<< HEAD
 
 uint8_t rx;
 uint8_t command[64];
@@ -63,18 +62,13 @@ uint16_t LED_Pins[] = {	LED1_RED_Pin,
 						LED3_GREEN_Pin,
 						LED4_ORANGE_Pin };
 
-=======
->>>>>>> 09cce653c8861629ad0c6ed72ffa418da3b2ad21
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void Measure_External_Temperature(void);
-<<<<<<< HEAD
 void Handle_Command(void);
-=======
->>>>>>> 09cce653c8861629ad0c6ed72ffa418da3b2ad21
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -203,7 +197,6 @@ void Measure_External_Temperature(void)
 	}
 }
 
-<<<<<<< HEAD
 void Handle_Command(void)
 {
 	int num;
@@ -328,26 +321,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 	HAL_UART_Receive_IT(&huart3, &rx, 1);
 }
-=======
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	switch(GPIO_Pin)
-	{
-	case BTN1_TOP_Pin:
-		HAL_GPIO_TogglePin(GPIOD, LED1_RED_Pin);
-		break;
-	case BTN2_RIGHT_Pin:
-		HAL_GPIO_TogglePin(GPIOD, LED2_BLUE_Pin);
-		break;
-	case BTN3_BOTTOM_Pin:
-		HAL_GPIO_TogglePin(GPIOD, LED3_GREEN_Pin);
-		break;
-	case BTN4_LEFT_Pin:
-		HAL_GPIO_TogglePin(GPIOD, LED4_ORANGE_Pin);
-		break;
-	}
-}
->>>>>>> 09cce653c8861629ad0c6ed72ffa418da3b2ad21
+
 /* USER CODE END 4 */
 
 /**
