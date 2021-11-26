@@ -5,11 +5,6 @@ RemoteSystemsTempFiles/
 Debug/
 *.launch
 
-# STM32 git ignore
-*.mxproject
-*.cproject
-*.project
-
 # Prerequisites
 *.d
 
