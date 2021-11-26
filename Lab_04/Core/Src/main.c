@@ -35,8 +35,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-//#define MIN_INT_T		(-40)
-//#define MAX_INT_T		125
+#define ALERT_POT_PERC		80
+#define ALERT_INT_TEMP		30
+#define ALERT_EXT_TEMP		30
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,6 +51,8 @@
 const uint32_t MIN_INT_T = -40;
 const uint32_t MAX_INT_T = 125;
 const uint32_t RANGE_INT_T = MAX_INT_T - MIN_INT_T;
+const uint32_t INT_T_OFFSET = 25;
+const uint32_t INT_T_V25 = 760; //in mV
 
 const uint32_t MIN_EXT_T = -24;
 const uint32_t MAX_EXT_T = 100;
@@ -60,15 +63,21 @@ const uint32_t AVG_SLOPE = 25;
 uint32_t potentiometer_level = 0;
 int32_t internal_temperature = 0;
 int32_t external_temperature = 0;
+
+uint8_t potentiometer_alert = 0;
+uint8_t internal_temp_alert = 0;
+uint8_t external_temp_alert = 0;
+
+uint32_t alert_blink_intervals[] = {0, 1000, 400, 200};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void ADC_Select_Channel(uint32_t channel);
 void Measure_Potentiometer(void);
 void Measure_Internal_Temperature(void);
 void Measure_External_Temperature(void);
+void Check_Alerts(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,6 +115,9 @@ int main(void)
   MX_GPIO_Init();
   MX_ADC1_Init();
   MX_TIM4_Init();
+  MX_TIM6_Init();
+  MX_ADC2_Init();
+  MX_ADC3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
@@ -119,6 +131,7 @@ int main(void)
 	  Measure_Potentiometer();
 	  Measure_Internal_Temperature();
 	  Measure_External_Temperature();
+	  Check_Alerts();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -166,33 +179,21 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void ADC_Select_Channel(uint32_t channel)
-{
-	ADC_ChannelConfTypeDef sConfig = {0};
-	sConfig.Channel = channel;
-	sConfig.Rank = 1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	{
-		Error_Handler();
-	}
-}
 
 void Measure_Potentiometer(void)
 {
 	HAL_StatusTypeDef dac_poll_result;
 	uint32_t adc_value;
 
-	ADC_Select_Channel(ADC_CHANNEL_3);
-	HAL_ADC_Start(&hadc1);
-	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 100);
+	HAL_ADC_Start(&hadc3);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc3, 1);
 	if (dac_poll_result == HAL_OK)
 	{
-		adc_value = HAL_ADC_GetValue(&hadc1);
-		potentiometer_level = adc_value * 100 / 4096;
+		adc_value = HAL_ADC_GetValue(&hadc3);
+		potentiometer_level = adc_value * 100 / 4096; //in percent
 		TIM4->CCR4 = potentiometer_level;
+		potentiometer_alert = potentiometer_level>= ALERT_POT_PERC;
 	}
-	HAL_ADC_Stop(&hadc1);
 }
 
 void Measure_Internal_Temperature(void)
@@ -201,18 +202,16 @@ void Measure_Internal_Temperature(void)
 	uint32_t adc_value;
 	uint32_t voltage;
 
-
-	ADC_Select_Channel(ADC_CHANNEL_TEMPSENSOR);
 	HAL_ADC_Start(&hadc1);
-	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 100);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 1);
 	if (dac_poll_result == HAL_OK)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc1);
 		voltage = 3300 * adc_value / 4096; // in mV
-		internal_temperature = (voltage - 760) / AVG_SLOPE + 25;
+		internal_temperature = (voltage - INT_T_V25) / AVG_SLOPE + INT_T_OFFSET;
 		TIM4->CCR2 = (internal_temperature - MIN_INT_T) * 100 / RANGE_INT_T;
+		internal_temp_alert = internal_temperature >= ALERT_INT_TEMP;
 	}
-
 }
 
 void Measure_External_Temperature(void)
@@ -220,17 +219,53 @@ void Measure_External_Temperature(void)
 	HAL_StatusTypeDef dac_poll_result;
 	uint32_t adc_value;
 
-	ADC_Select_Channel(ADC_CHANNEL_9);
-	HAL_ADC_Start(&hadc1);
-	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 100);
+	HAL_ADC_Start(&hadc2);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc2, 1);
 	if (dac_poll_result == HAL_OK)
 	{
-		adc_value = HAL_ADC_GetValue(&hadc1);
+		adc_value = HAL_ADC_GetValue(&hadc2);
 		external_temperature = (2507 - adc_value) / AVG_SLOPE;
 		TIM4->CCR1 = (external_temperature - MIN_EXT_T) * 100 / RANGE_EXT_T;
+		external_temp_alert = external_temperature >= ALERT_EXT_TEMP;
+	}
+}
+
+void Check_Alerts(void)
+{
+	uint8_t cur_lvl = potentiometer_alert + internal_temp_alert + external_temp_alert;
+	static uint8_t prev_lvl = 0;
+
+	cur_lvl = potentiometer_alert + internal_temp_alert + external_temp_alert;
+
+	if (prev_lvl == 0)
+	{
+		if (cur_lvl > 0)
+		{
+			TIM6->ARR = alert_blink_intervals[cur_lvl] - 1;
+			TIM6->CNT = 0;
+			HAL_TIM_Base_Start_IT(&htim6);
+		}
+	}
+	else
+	{
+		if (cur_lvl == 0)
+		{
+			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+			HAL_TIM_Base_Stop_IT(&htim6);
+		}
+		else
+		{
+			if (cur_lvl != prev_lvl)
+			{
+				TIM6->ARR = alert_blink_intervals[cur_lvl] - 1;
+				TIM6->CNT = 0;
+			}
+		}
 	}
 
+	prev_lvl = cur_lvl;
 }
+
 /* USER CODE END 4 */
 
 /**
