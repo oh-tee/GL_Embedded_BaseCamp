@@ -141,7 +141,7 @@ int main(void)
 	  Measure_Internal_Temperature();
 	  Measure_External_Temperature();
 	  Check_Alerts();
-	  HAL_Delay(500);
+//	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -196,7 +196,7 @@ void Measure_Potentiometer(void)
 	uint32_t adc_value;
 
 	HAL_ADC_Start(&hadc3);
-	dac_poll_result = HAL_ADC_PollForConversion(&hadc3, 1);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc3, 100);
 	if (dac_poll_result == HAL_OK)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc3);
@@ -213,7 +213,7 @@ void Measure_Internal_Temperature(void)
 	uint32_t voltage;
 
 	HAL_ADC_Start(&hadc1);
-	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 1);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc1, 100);
 	if (dac_poll_result == HAL_OK)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc1);
@@ -230,7 +230,7 @@ void Measure_External_Temperature(void)
 	uint32_t adc_value;
 
 	HAL_ADC_Start(&hadc2);
-	dac_poll_result = HAL_ADC_PollForConversion(&hadc2, 1);
+	dac_poll_result = HAL_ADC_PollForConversion(&hadc2, 100);
 	if (dac_poll_result == HAL_OK)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc2);
@@ -244,23 +244,26 @@ void Check_Alerts(void)
 {
 	static uint8_t prev_lvl = 0;
 	uint8_t cur_lvl = potentiometer_alert + internal_temp_alert + external_temp_alert;
+	static uint32_t debounceCounter = 0;
 
-	if (cur_lvl > 0)
+	if (cur_lvl != prev_lvl)
 	{
-		alert_led_on = 1;
-		if (cur_lvl != prev_lvl)
-		{
-			TIM6->ARR = alert_blink_intervals[cur_lvl - 1];
-			TIM6->CNT = 0;
-		}
+		debounceCounter++;
 	}
 	else
 	{
-		alert_led_on = 0;
-		HAL_GPIO_WritePin(ALERT_LED_PORT, ALERT_LED_PIN, GPIO_PIN_RESET);
+		debounceCounter = 0;
 	}
 
-	prev_lvl = cur_lvl;
+	if (debounceCounter > 100)
+	{
+		debounceCounter = 0;
+		TIM6->ARR = alert_blink_intervals[cur_lvl - 1];
+		TIM6->CNT = 0;
+		prev_lvl = cur_lvl;
+		alert_led_on = cur_lvl > 0 ? true : false;
+		HAL_GPIO_WritePin(ALERT_LED_PORT, ALERT_LED_PIN, GPIO_PIN_RESET);
+	}
 }
 
 static void Timer_Callback(TIM_HandleTypeDef *htim)
