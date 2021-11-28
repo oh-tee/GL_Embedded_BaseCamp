@@ -104,8 +104,8 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART3_UART_Init();
   MX_ADC1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_IT(&huart3, &rx, 1);
   uint32_t current_tick = HAL_GetTick();
@@ -131,7 +131,7 @@ int main(void)
 		  HAL_UART_Transmit(&huart3, temperature_msg, sizeof(temperature_msg), 100);
 		  previous_tick = current_tick;
 	  }
-	/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
