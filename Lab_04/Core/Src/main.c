@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -38,6 +38,8 @@
 #define ALERT_POT_PERC		80
 #define ALERT_INT_TEMP		30
 #define ALERT_EXT_TEMP		30
+#define ALERT_LED_PORT		GPIOD
+#define ALERT_LED_PIN		GPIO_PIN_14
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,28 +50,31 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const uint32_t MIN_INT_T = -40;
-const uint32_t MAX_INT_T = 125;
-const uint32_t RANGE_INT_T = MAX_INT_T - MIN_INT_T;
-const uint32_t INT_T_OFFSET = 25;
-const uint32_t INT_T_V25 = 760; //in mV
+static const uint32_t MIN_INT_T = -40;
+static const uint32_t MAX_INT_T = 125;
+static const uint32_t RANGE_INT_T = MAX_INT_T - MIN_INT_T;
+static const uint32_t INT_T_OFFSET = 25;
+static const uint32_t INT_T_V25 = 760; //in mV
 
-const uint32_t MIN_EXT_T = -24;
-const uint32_t MAX_EXT_T = 100;
-const uint32_t RANGE_EXT_T = MAX_EXT_T - MIN_EXT_T;
-const uint32_t EXT_T_ADC = 2507;
+static const uint32_t MIN_EXT_T = -24;
+static const uint32_t MAX_EXT_T = 100;
+static const uint32_t RANGE_EXT_T = MAX_EXT_T - MIN_EXT_T;
+static const uint32_t EXT_T_ADC_0C = 2507;
 
-const uint32_t AVG_SLOPE = 25;
+static const uint32_t AVG_SLOPE = 25;
 
-uint32_t potentiometer_level = 0;
-int32_t internal_temperature = 0;
-int32_t external_temperature = 0;
+static const uint32_t alert_blink_intervals[] = {500 - 1, 200 - 1, 100 - 1}; // ms between LED toggles
 
-uint8_t potentiometer_alert = 0;
-uint8_t internal_temp_alert = 0;
-uint8_t external_temp_alert = 0;
+static uint32_t potentiometer_level = 0;
+static int32_t internal_temperature = 0;
+static int32_t external_temperature = 0;
 
-uint32_t alert_blink_intervals[] = {0, 500, 200, 100}; // ms between LED toggles
+static bool potentiometer_alert = 0;
+static bool internal_temp_alert = 0;
+static bool external_temp_alert = 0;
+
+static bool alert_led_on = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,6 +84,7 @@ void Measure_Potentiometer(void);
 void Measure_Internal_Temperature(void);
 void Measure_External_Temperature(void);
 void Check_Alerts(void);
+static void Timer_Callback(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -123,6 +129,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
+  htim6.PeriodElapsedCallback = Timer_Callback;
+  HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -133,6 +141,7 @@ int main(void)
 	  Measure_Internal_Temperature();
 	  Measure_External_Temperature();
 	  Check_Alerts();
+	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -169,9 +178,9 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
@@ -193,7 +202,7 @@ void Measure_Potentiometer(void)
 		adc_value = HAL_ADC_GetValue(&hadc3);
 		potentiometer_level = adc_value * 100 / 4096; //in percent
 		TIM4->CCR4 = potentiometer_level;
-		potentiometer_alert = potentiometer_level>= ALERT_POT_PERC;
+		potentiometer_alert = potentiometer_level >= ALERT_POT_PERC;
 	}
 }
 
@@ -225,7 +234,7 @@ void Measure_External_Temperature(void)
 	if (dac_poll_result == HAL_OK)
 	{
 		adc_value = HAL_ADC_GetValue(&hadc2);
-		external_temperature = (EXT_T_ADC - adc_value) / AVG_SLOPE;
+		external_temperature = (EXT_T_ADC_0C - adc_value) / AVG_SLOPE;
 		TIM4->CCR1 = (external_temperature - MIN_EXT_T) * 100 / RANGE_EXT_T;
 		external_temp_alert = external_temperature >= ALERT_EXT_TEMP;
 	}
@@ -233,38 +242,35 @@ void Measure_External_Temperature(void)
 
 void Check_Alerts(void)
 {
-	uint8_t cur_lvl = potentiometer_alert + internal_temp_alert + external_temp_alert;
 	static uint8_t prev_lvl = 0;
+	uint8_t cur_lvl = potentiometer_alert + internal_temp_alert + external_temp_alert;
 
-	cur_lvl = potentiometer_alert + internal_temp_alert + external_temp_alert;
-
-	if (prev_lvl == 0)
+	if (cur_lvl > 0)
 	{
-		if (cur_lvl > 0)
+		alert_led_on = 1;
+		if (cur_lvl != prev_lvl)
 		{
-			TIM6->ARR = alert_blink_intervals[cur_lvl] - 1;
+			TIM6->ARR = alert_blink_intervals[cur_lvl - 1];
 			TIM6->CNT = 0;
-			HAL_TIM_Base_Start_IT(&htim6);
 		}
 	}
 	else
 	{
-		if (cur_lvl == 0)
-		{
-			HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
-			HAL_TIM_Base_Stop_IT(&htim6);
-		}
-		else
-		{
-			if (cur_lvl != prev_lvl)
-			{
-				TIM6->ARR = alert_blink_intervals[cur_lvl] - 1;
-				TIM6->CNT = 0;
-			}
-		}
+		alert_led_on = 0;
+		HAL_GPIO_WritePin(ALERT_LED_PORT, ALERT_LED_PIN, GPIO_PIN_RESET);
 	}
 
 	prev_lvl = cur_lvl;
+}
+
+static void Timer_Callback(TIM_HandleTypeDef *htim)
+{
+	if (htim == &htim6) {
+		if (alert_led_on)
+		{
+			HAL_GPIO_TogglePin(ALERT_LED_PORT, ALERT_LED_PIN);
+		}
+	}
 }
 
 /* USER CODE END 4 */
