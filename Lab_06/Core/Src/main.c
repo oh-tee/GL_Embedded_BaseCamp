@@ -53,15 +53,11 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-void gpioCallback(bool state)
-{
-	 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-}
+void Show_Dimming_Effect(void);
+void Show_Blink_Effect(void);
+void GPIO_Callback(bool state);
+void I2C_Transmit(uint8_t devId, uint8_t data[], uint32_t len);
 
-void i2c_Transmit(uint8_t devId, uint8_t data[], uint32_t len)
-{
-	HAL_I2C_Master_Transmit(&hi2c1, devId, data, len, 1000);
-}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -99,41 +95,17 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  LED_Driver_Init(1, gpioCallback, i2c_Transmit);
+  HAL_Delay(10);
+  LED_Driver_Init(GPIO_Callback, I2C_Transmit);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_Delay(10);
-
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
-
-  uint8_t devId = 0x80;
-  uint8_t TxBuffer[8];
-
-  TxBuffer[0] = 0x00;	//MODE0
-  TxBuffer[1] = 0x01;
-  HAL_I2C_Master_Transmit(&hi2c1, devId, (uint8_t *) &TxBuffer, 2, 1000);
-
-  TxBuffer[0] = 0x06;	// LED_ON_L
-  TxBuffer[1] = 0x00;
-  HAL_I2C_Master_Transmit(&hi2c1, devId, (uint8_t *) &TxBuffer, 2, 1000);
-
-  TxBuffer[0] = 0x07;	// LED_ON_H
-  TxBuffer[1] = 0x00;
-  HAL_I2C_Master_Transmit(&hi2c1, devId, (uint8_t *) &TxBuffer, 2, 1000);
-
-  TxBuffer[0] = 0x08;	// LED_OFF_L
-  TxBuffer[1] = 0x65;
-  HAL_I2C_Master_Transmit(&hi2c1, devId, (uint8_t *) &TxBuffer, 2, 1000);
-
-  TxBuffer[0] = 0x09;	// LED_OFF_H
-  TxBuffer[1] = 0x0E;
-  HAL_I2C_Master_Transmit(&hi2c1, devId, (uint8_t *) &TxBuffer, 2, 1000);
 
   while (1)
   {
-    /* USER CODE END WHILE */
+
+	/* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -359,7 +331,46 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void Show_Dimming_Effect(void)
+{
+	for (int i = 0; i <= 100; i++)
+	{
+		LED_Driver_Set_PWM_All(i, 0);
+		HAL_Delay(50);
+	}
+	for (int i = 100; i >= 0; i--)
+	{
+		LED_Driver_Set_PWM_All(i, 0);
+		HAL_Delay(50);
+	}
+}
 
+void Show_Blink_Effect(void)
+{
+	for (int i = 0; i < 16; i++)
+	{
+		LED_Driver_Turn_On(i);
+		HAL_Delay(50);
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		LED_Driver_Turn_On_All();
+		HAL_Delay(200);
+		LED_Driver_Turn_Off_All();
+		HAL_Delay(200);
+	}
+}
+
+void GPIO_Callback(bool state)
+{
+	 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+void I2C_Transmit(uint8_t devId, uint8_t data[], uint32_t len)
+{
+	HAL_I2C_Master_Transmit(&hi2c1, devId, data, len, 1000);
+}
 /* USER CODE END 4 */
 
 /**
