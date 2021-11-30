@@ -84,7 +84,7 @@ void LED_Driver_Set_Frequency(uint32_t freq)
 		freq = 1526;
 	}
 
-	uint32_t presc_value = (25000 / (4096 * freq)) - 1;
+	uint32_t presc_value = 25000000 / 4096 / freq - 1;
 	uint8_t data[] = {0xFE, (uint8_t) presc_value};
 
 	sendDataCb(PCA9685_ID, data, sizeof(data));
