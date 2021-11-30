@@ -19,10 +19,14 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "spi.h"
+#include "usart.h"
+#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
+#include "SST25VF016B.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,6 +36,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define LINES_COUNT 		20
+#define MAX_CHAR_IN_LINE 	65
+#define SECTOR_BYTES		4095
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -40,20 +47,40 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
 // Prepare Transmit and Receive Arrays
 uint8_t TransmitArray[100] = {0};
 uint8_t ReceiveArray[sizeof(TransmitArray)] = {0};
+char text[LINES_COUNT][MAX_CHAR_IN_LINE] = 	{	"=========================================\n",
+												"From: Olha Tepla, helgaminchenko@gmail.com\n",
+												"Mentor: Oleksandr Mordyk, oleksandr.mordyk@globallogic.com\n",
+												"Date: 30.11.2021\n",
+												"==========================================\n",
+												"TIME CAPSULE\n",
+												"==========================================\n",
+												"Oh, you may not think I'm pretty,\n",
+												"But don't judge on what you see,\n",
+												"I'll eat myself if you can find\n",
+												"A smarter hat than me.\n",
+												"You can keep your bowlers black,\n",
+												"Your top hats sleek and tall,\n",
+												"For I'm the Hogwarts Sorting Hat\n",
+												"And I can cap them all.\n",
+												"There's nothing hidden in your head\n",
+												"The Sorting Hat can't see,\n",
+												"So try me on and I will tell you\n",
+												"Where you ought to be.\n",
+												"==========================================\n"};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void Write_Time_Capsule(void);
+void Read_Time_Capsule(void);
+void Print(char buf[], uint32_t len);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -90,24 +117,37 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_SPI1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   // CS = HIGH
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_SET);
   HAL_Delay(100);
 
+//  Memory_Driver_Erase_Flash();
+//  HAL_Delay(1000);
+//
+//  Write_Time_Capsule();
+//  HAL_Delay(1000);
 
+  Read_Time_Capsule();
+  HAL_Delay(1000);
+//  volatile uint8_t result = Memory_Driver_Write(test_Tx_buf, 0x00, sizeof(test_Tx_buf));
+//  HAL_Delay(1000);
 
-//  // Prepare READ_ID command
-//  TransmitArray[0] = 0x90;
-//  TransmitArray[1] = 0x00;
-//  TransmitArray[2] = 0x00;
-//  TransmitArray[3] = 0x00;
+//  Memory_Driver_Read(test_Rx_buf, 0x00, sizeof(test_Rx_buf));
+//  HAL_Delay(1000);
 
-  // Prepare READ_MEM command
-    TransmitArray[0] = 0x03;
-    TransmitArray[1] = 0x00;
-    TransmitArray[2] = 0x00;
-    TransmitArray[3] = 0x00;
+////  // Prepare READ_ID command
+////  TransmitArray[0] = 0x90;
+////  TransmitArray[1] = 0x00;
+////  TransmitArray[2] = 0x00;
+////  TransmitArray[3] = 0x00;
+//
+//  // Prepare READ_MEM command
+//    TransmitArray[0] = 0x03;
+//    TransmitArray[1] = 0x00;
+//    TransmitArray[2] = 0x00;
+//    TransmitArray[3] = 0x00;
 
   /* USER CODE END 2 */
 
@@ -115,36 +155,36 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // CS = LOW
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_RESET);
-	  HAL_Delay(1);
-	  // Exchange data
-//	  HAL_SPI_Transmit(&hspi1, TransmitArray, 4, 100);
+//	  // CS = LOW
+//	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_RESET);
 //	  HAL_Delay(1);
-//	  HAL_SPI_Receive(&hspi1, ReceiveArray, sizeof(ReceiveArray), 100);
+//	  // Exchange data
+////	  HAL_SPI_Transmit(&hspi1, TransmitArray, 4, 100);
+////	  HAL_Delay(1);
+////	  HAL_SPI_Receive(&hspi1, ReceiveArray, sizeof(ReceiveArray), 100);
+////	  HAL_Delay(1);
+//	  HAL_SPI_TransmitReceive(&hspi1, TransmitArray, ReceiveArray, sizeof(ReceiveArray), 1000);
+//
 //	  HAL_Delay(1);
-	  HAL_SPI_TransmitReceive(&hspi1, TransmitArray, ReceiveArray, sizeof(ReceiveArray), 1000);
+//	  // CS = HIGH
+//	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_SET);
+//
+//	  HAL_Delay(1);
+//	  bool foundNewLine = false;
+//	  for (uint32_t i = 0; i < sizeof(ReceiveArray); i++) {
+//		  if (ReceiveArray[i] == '\n') {
+//			  foundNewLine = true;
+//			  break;
+//		  }
+//	  }
+//	  if (foundNewLine) {
+//		  foundNewLine = false; // place breakpoint here
+//	  }
+//
+//	  *((uint32_t *) &TransmitArray[0]) += 0x1000; // increment address to next 4096 block
+//	  TransmitArray[0] = 0x03;
 
-	  HAL_Delay(1);
-	  // CS = HIGH
-	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_SET);
-
-	  HAL_Delay(1);
-	  bool foundNewLine = false;
-	  for (uint32_t i = 0; i < sizeof(ReceiveArray); i++) {
-		  if (ReceiveArray[i] == '\n') {
-			  foundNewLine = true;
-			  break;
-		  }
-	  }
-	  if (foundNewLine) {
-		  foundNewLine = false; // place breakpoint here
-	  }
-
-	  *((uint32_t *) &TransmitArray[0]) += 0x1000; // increment address to next 4096 block
-	  TransmitArray[0] = 0x03;
-
-	  /* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -195,176 +235,42 @@ void SystemClock_Config(void)
   }
 }
 
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOE_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(OTG_FS_PowerSwitchOn_GPIO_Port, OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin
-                          |Audio_RST_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : CS_I2C_SPI_Pin */
-  GPIO_InitStruct.Pin = CS_I2C_SPI_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(CS_I2C_SPI_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : OTG_FS_PowerSwitchOn_Pin */
-  GPIO_InitStruct.Pin = OTG_FS_PowerSwitchOn_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(OTG_FS_PowerSwitchOn_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PDM_OUT_Pin */
-  GPIO_InitStruct.Pin = PDM_OUT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
-  HAL_GPIO_Init(PDM_OUT_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : B1_Pin */
-  GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : I2S3_WS_Pin */
-  GPIO_InitStruct.Pin = I2S3_WS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
-  HAL_GPIO_Init(I2S3_WS_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : BOOT1_Pin */
-  GPIO_InitStruct.Pin = BOOT1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(BOOT1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : CLK_IN_Pin */
-  GPIO_InitStruct.Pin = CLK_IN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
-  HAL_GPIO_Init(CLK_IN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LD4_Pin LD3_Pin LD5_Pin LD6_Pin
-                           Audio_RST_Pin PD7 */
-  GPIO_InitStruct.Pin = LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin
-                          |Audio_RST_Pin|GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : I2S3_MCK_Pin I2S3_SCK_Pin I2S3_SD_Pin */
-  GPIO_InitStruct.Pin = I2S3_MCK_Pin|I2S3_SCK_Pin|I2S3_SD_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : VBUS_FS_Pin */
-  GPIO_InitStruct.Pin = VBUS_FS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(VBUS_FS_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : OTG_FS_ID_Pin OTG_FS_DM_Pin OTG_FS_DP_Pin */
-  GPIO_InitStruct.Pin = OTG_FS_ID_Pin|OTG_FS_DM_Pin|OTG_FS_DP_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : OTG_FS_OverCurrent_Pin */
-  GPIO_InitStruct.Pin = OTG_FS_OverCurrent_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(OTG_FS_OverCurrent_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : Audio_SCL_Pin Audio_SDA_Pin */
-  GPIO_InitStruct.Pin = Audio_SCL_Pin|Audio_SDA_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : MEMS_INT2_Pin */
-  GPIO_InitStruct.Pin = MEMS_INT2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(MEMS_INT2_GPIO_Port, &GPIO_InitStruct);
-
-}
-
 /* USER CODE BEGIN 4 */
+void Write_Time_Capsule(void)
+{
+	uint32_t address = 0x00;
 
+	for (int line = 0; line < LINES_COUNT; line++, address += SECTOR_BYTES)
+	{
+		Memory_Driver_Write(text[line], address, MAX_CHAR_IN_LINE);
+	}
+}
+
+void Read_Time_Capsule(void)
+{
+	char buf[MAX_CHAR_IN_LINE];
+
+	uint32_t address = 0;
+
+	for (int line = 0; line < LINES_COUNT; line++, address += SECTOR_BYTES)
+	{
+		Memory_Driver_Read(buf, address, MAX_CHAR_IN_LINE);
+		HAL_Delay(100);
+		Print(buf, MAX_CHAR_IN_LINE);
+	}
+}
+
+void Print(char buf[], uint32_t len)
+{
+	for (int i = 0; i < len; i++){
+		if (buf[i] == '\n' || buf[i] == '\0')
+		{
+			break;
+		}
+		HAL_UART_Transmit(&huart3, &buf[i], 1, 100);
+	}
+	HAL_UART_Transmit(&huart3, "\r\n", 2, 100);
+}
 /* USER CODE END 4 */
 
 /**
