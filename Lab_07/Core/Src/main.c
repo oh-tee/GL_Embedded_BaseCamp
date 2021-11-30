@@ -38,7 +38,9 @@
 /* USER CODE BEGIN PD */
 #define LINES_COUNT 		20
 #define MAX_CHAR_IN_LINE 	65
-#define SECTOR_BYTES		4095
+#define SECTOR_BYTES		4096
+
+#define WRITE				1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,9 +51,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// Prepare Transmit and Receive Arrays
-uint8_t TransmitArray[100] = {0};
-uint8_t ReceiveArray[sizeof(TransmitArray)] = {0};
 char text[LINES_COUNT][MAX_CHAR_IN_LINE] = 	{	"=========================================\n",
 												"From: Olha Tepla, helgaminchenko@gmail.com\n",
 												"Mentor: Oleksandr Mordyk, oleksandr.mordyk@globallogic.com\n",
@@ -119,35 +118,15 @@ int main(void)
   MX_SPI1_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  // CS = HIGH
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_SET);
   HAL_Delay(100);
 
-//  Memory_Driver_Erase_Flash();
-//  HAL_Delay(1000);
-//
-//  Write_Time_Capsule();
-//  HAL_Delay(1000);
+  if (WRITE)
+  {
+	  Write_Time_Capsule();
+  }
 
   Read_Time_Capsule();
-  HAL_Delay(1000);
-//  volatile uint8_t result = Memory_Driver_Write(test_Tx_buf, 0x00, sizeof(test_Tx_buf));
-//  HAL_Delay(1000);
-
-//  Memory_Driver_Read(test_Rx_buf, 0x00, sizeof(test_Rx_buf));
-//  HAL_Delay(1000);
-
-////  // Prepare READ_ID command
-////  TransmitArray[0] = 0x90;
-////  TransmitArray[1] = 0x00;
-////  TransmitArray[2] = 0x00;
-////  TransmitArray[3] = 0x00;
-//
-//  // Prepare READ_MEM command
-//    TransmitArray[0] = 0x03;
-//    TransmitArray[1] = 0x00;
-//    TransmitArray[2] = 0x00;
-//    TransmitArray[3] = 0x00;
 
   /* USER CODE END 2 */
 
@@ -155,35 +134,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  // CS = LOW
-//	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_RESET);
-//	  HAL_Delay(1);
-//	  // Exchange data
-////	  HAL_SPI_Transmit(&hspi1, TransmitArray, 4, 100);
-////	  HAL_Delay(1);
-////	  HAL_SPI_Receive(&hspi1, ReceiveArray, sizeof(ReceiveArray), 100);
-////	  HAL_Delay(1);
-//	  HAL_SPI_TransmitReceive(&hspi1, TransmitArray, ReceiveArray, sizeof(ReceiveArray), 1000);
-//
-//	  HAL_Delay(1);
-//	  // CS = HIGH
-//	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_SET);
-//
-//	  HAL_Delay(1);
-//	  bool foundNewLine = false;
-//	  for (uint32_t i = 0; i < sizeof(ReceiveArray); i++) {
-//		  if (ReceiveArray[i] == '\n') {
-//			  foundNewLine = true;
-//			  break;
-//		  }
-//	  }
-//	  if (foundNewLine) {
-//		  foundNewLine = false; // place breakpoint here
-//	  }
-//
-//	  *((uint32_t *) &TransmitArray[0]) += 0x1000; // increment address to next 4096 block
-//	  TransmitArray[0] = 0x03;
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -240,10 +190,21 @@ void Write_Time_Capsule(void)
 {
 	uint32_t address = 0x00;
 
+	Print("Start to erase\r\n", sizeof("Start to erase\r\n"));
+	for (int sector = 0; sector < LINES_COUNT; sector++, address += SECTOR_BYTES)
+	{
+		Memory_Driver_Erase_Sector(address);
+	}
+	Print("Erasing complete\r\n", sizeof("Erasing complete\r\n"));
+
+	address = 0x00;
+
+	Print("Start to write\r\n", sizeof("Start to write\r\n"));
 	for (int line = 0; line < LINES_COUNT; line++, address += SECTOR_BYTES)
 	{
 		Memory_Driver_Write(text[line], address, MAX_CHAR_IN_LINE);
 	}
+	Print("Writing complete\r\n", sizeof("Writing complete\r\n"));
 }
 
 void Read_Time_Capsule(void)
@@ -251,13 +212,14 @@ void Read_Time_Capsule(void)
 	char buf[MAX_CHAR_IN_LINE];
 
 	uint32_t address = 0;
-
+	Print("Start to read\r\n", sizeof("Start to read\r\n"));
 	for (int line = 0; line < LINES_COUNT; line++, address += SECTOR_BYTES)
 	{
 		Memory_Driver_Read(buf, address, MAX_CHAR_IN_LINE);
 		HAL_Delay(100);
 		Print(buf, MAX_CHAR_IN_LINE);
 	}
+	Print("Reading complete\r\n", sizeof("Reading complete\r\n"));
 }
 
 void Print(char buf[], uint32_t len)
